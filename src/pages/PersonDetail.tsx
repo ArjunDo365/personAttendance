@@ -6,41 +6,37 @@ import {
   Calendar,
   MapPin,
   Phone,
-  GraduationCap,
+  Briefcase,
 } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
-interface StudentProfile {
+interface EmployeeProfile {
   id: string;
   name: string;
-  register_number: string;
+  employee_id: string;
   department_name: string;
-  course_name: string;
-  batch_name: string;
+  designation_name: string;
+  shift_name: string;
   contact_person_name: string;
   contact_person_number: string;
 }
 
 interface AttendanceRecord {
   unique_id: string;
-  asset_no: string;
+  device: string;
   type: "in" | "out";
   created_on: string; // "YYYY-MM-DD HH:mm:ss"
 }
 
-// ─── Hardcoded demo data (swap for a real API call later) ─────────────────
-// TODO: replace with fetchStudentById(id) once the backend endpoint is
-// ready — same shape as fetchAnimalById.
-
-const MOCK_PROFILES: Record<string, StudentProfile> = {
+const MOCK_PROFILES: Record<string, EmployeeProfile> = {
   "1": {
     id: "1",
     name: "Arjun",
-    register_number: "21CS045",
-    department_name: "Computer Science",
-    course_name: "B.E.",
-    batch_name: "2023-2027",
+    employee_id: "EMP1045",
+    department_name: "Engineering",
+    designation_name: "Software Engineer",
+    shift_name: "Morning Shift",
     contact_person_name: "Suresh Kumar",
     contact_person_number: "+91 98765 43210",
   },
@@ -49,27 +45,27 @@ const MOCK_PROFILES: Record<string, StudentProfile> = {
 const MOCK_RECORDS: AttendanceRecord[] = [
   {
     unique_id: "r1",
-    asset_no: "Main Gate",
+    device: "Main Gate",
     type: "in",
-    created_on: "2026-08-04 08:15:00",
+    created_on: "2026-08-04 09:02:00",
   },
   {
     unique_id: "r2",
-    asset_no: "Library",
-    type: "in",
-    created_on: "2026-08-04 10:05:00",
+    device: "Cafeteria",
+    type: "out",
+    created_on: "2026-08-04 13:10:00",
   },
   {
     unique_id: "r3",
-    asset_no: "Library",
-    type: "out",
-    created_on: "2026-08-04 11:40:00",
+    device: "Cafeteria",
+    type: "in",
+    created_on: "2026-08-04 13:45:00",
   },
   {
     unique_id: "r4",
-    asset_no: "Main Gate",
+    device: "Main Gate",
     type: "out",
-    created_on: "2026-08-04 17:20:00",
+    created_on: "2026-08-04 18:20:00",
   },
 ];
 
@@ -95,8 +91,6 @@ function initials(name: string) {
 }
 
 function formatCreatedOn(createdOn: string | undefined | null): string {
-  // Backend sends "YYYY-MM-DD HH:mm:ss" — parse manually since browsers
-  // (Safari in particular) don't reliably parse space-separated datetimes.
   if (!createdOn) return "—";
 
   const [datePart, timePart] = createdOn.split(" ");
@@ -128,7 +122,7 @@ export default function PersonDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [profile, setProfile] = useState<StudentProfile | null>(null);
+  const [profile, setProfile] = useState<EmployeeProfile | null>(null);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -138,17 +132,13 @@ export default function PersonDetail() {
 
     (async () => {
       if (!id) {
-        setError("No student id provided.");
+        setError("No employee id provided.");
         setIsLoading(false);
         return;
       }
       setIsLoading(true);
       setError("");
       try {
-        // TODO: swap for a real API call, e.g.
-        // const data = await fetchStudentById(id);
-        // setProfile(data.profile);
-        // setRecords(data.records);
         await new Promise((resolve) => setTimeout(resolve, 300)); // simulate network
         if (active) {
           const foundProfile = MOCK_PROFILES[id] ?? MOCK_PROFILES["1"];
@@ -163,7 +153,7 @@ export default function PersonDetail() {
           setError(
             err instanceof Error
               ? err.message
-              : "Failed to load student details.",
+              : "Failed to load employee details.",
           );
         }
       } finally {
@@ -178,7 +168,6 @@ export default function PersonDetail() {
 
   return (
     <div className="px-4 pt-6 pb-8">
-      {/* Header with back button */}
       <div className="flex items-center gap-3 mb-5">
         <button
           type="button"
@@ -188,7 +177,7 @@ export default function PersonDetail() {
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-2xl font-bold">Student Details</h1>
+        <h1 className="text-2xl font-bold">Employee Details</h1>
       </div>
 
       {isLoading && (
@@ -198,7 +187,7 @@ export default function PersonDetail() {
         <p className="text-red-500 text-center py-8">{error}</p>
       )}
       {!isLoading && !error && !profile && (
-        <p className="text-gray-500 text-center py-8">Student not found.</p>
+        <p className="text-gray-500 text-center py-8">Employee not found.</p>
       )}
 
       {!isLoading && !error && profile && (
@@ -215,24 +204,22 @@ export default function PersonDetail() {
                 <h2 className="text-xl font-bold text-gray-900">
                   {profile.name}
                 </h2>
-                <p className="text-sm text-gray-500">
-                  {profile.register_number}
-                </p>
+                <p className="text-sm text-gray-500">{profile.employee_id}</p>
               </div>
             </div>
 
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <GraduationCap className="w-5 h-5 text-gray-400 shrink-0" />
+                <Briefcase className="w-5 h-5 text-gray-400 shrink-0" />
                 <div>
                   <p className="text-xs text-gray-500">
-                    Department / Course / Batch
+                    Department / Designation / Shift
                   </p>
                   <p className="font-medium text-gray-900">
                     {[
                       profile.department_name,
-                      profile.course_name,
-                      profile.batch_name,
+                      profile.designation_name,
+                      profile.shift_name,
                     ]
                       .filter(Boolean)
                       .join(" - ")}
@@ -243,7 +230,7 @@ export default function PersonDetail() {
               <div className="flex items-center gap-3">
                 <Phone className="w-5 h-5 text-gray-400 shrink-0" />
                 <div>
-                  <p className="text-xs text-gray-500">Contact Person</p>
+                  <p className="text-xs text-gray-500">Emergency Contact</p>
                   <p className="font-medium text-gray-900">
                     {profile.contact_person_name} ·{" "}
                     {profile.contact_person_number}
@@ -253,7 +240,6 @@ export default function PersonDetail() {
             </div>
           </div>
 
-          {/* Attendance history */}
           <div>
             <h3 className="text-lg font-bold mb-3">Attendance History</h3>
 
@@ -270,7 +256,7 @@ export default function PersonDetail() {
                   >
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="font-bold text-gray-900">
-                        {record.asset_no}
+                        {record.device}
                       </h4>
                       <span
                         className={`inline-flex items-center gap-1 text-sm font-semibold px-3 py-1 rounded-full uppercase ${
@@ -289,7 +275,7 @@ export default function PersonDetail() {
                         <div>
                           <p className="text-xs text-gray-500">Location</p>
                           <p className="font-medium text-gray-900">
-                            {record.asset_no}
+                            {record.device}
                           </p>
                         </div>
                       </div>

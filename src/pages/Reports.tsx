@@ -6,91 +6,87 @@ import { useNavigate } from "react-router-dom";
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
-interface StudentReportItem {
+interface EmployeeReportItem {
   id: string;
   name: string;
-  register_number: string;
+  employee_id: string;
   department_name: string;
-  course_name: string;
-  batch_name: string;
+  designation_name: string;
+  shift_name: string;
   status: "Present" | "Absent";
   last_activity: string; // "YYYY-MM-DD HH:mm:ss"
 }
 
-// ─── Hardcoded demo data (swap for a real API call later) ─────────────────
-// TODO: replace with fetchStudentReportByRange(startDate, endDate) once the
-// backend endpoint is ready — same shape as fetchDashboardAnimalCountByRange.
-
-const MOCK_STUDENTS: StudentReportItem[] = [
+const MOCK_EMPLOYEES: EmployeeReportItem[] = [
   {
     id: "1",
     name: "Arjun",
-    register_number: "21CS045",
-    department_name: "Computer Science",
-    course_name: "B.E.",
-    batch_name: "2023-2027",
+    employee_id: "EMP1045",
+    department_name: "Engineering",
+    designation_name: "Software Engineer",
+    shift_name: "Morning Shift",
     status: "Present",
-    last_activity: "2026-08-04 08:15:00",
+    last_activity: "2026-08-04 09:02:00",
   },
   {
     id: "2",
     name: "Vikram",
-    register_number: "21CS012",
-    department_name: "Computer Science",
-    course_name: "B.E.",
-    batch_name: "2023-2027",
+    employee_id: "EMP1012",
+    department_name: "Engineering",
+    designation_name: "Team Lead",
+    shift_name: "Morning Shift",
     status: "Present",
-    last_activity: "2026-08-04 08:22:00",
+    last_activity: "2026-08-04 09:10:00",
   },
   {
     id: "3",
     name: "Rahul",
-    register_number: "20ME089",
-    department_name: "Mechanical",
-    course_name: "B.Tech",
-    batch_name: "2022-2026",
+    employee_id: "EMP2089",
+    department_name: "Sales & Marketing",
+    designation_name: "Manager",
+    shift_name: "Evening Shift",
     status: "Absent",
-    last_activity: "2026-08-03 17:40:00",
+    last_activity: "2026-08-03 18:20:00",
   },
   {
     id: "4",
     name: "Karthik",
-    register_number: "21EC034",
-    department_name: "Electronics",
-    course_name: "B.E.",
-    batch_name: "2023-2027",
+    employee_id: "EMP3034",
+    department_name: "Human Resources",
+    designation_name: "Software Engineer",
+    shift_name: "Morning Shift",
     status: "Present",
-    last_activity: "2026-08-04 09:05:00",
+    last_activity: "2026-08-04 09:15:00",
   },
   {
     id: "5",
     name: "Priya",
-    register_number: "21CS021",
-    department_name: "Computer Science",
-    course_name: "B.E.",
-    batch_name: "2023-2027",
+    employee_id: "EMP1021",
+    department_name: "Engineering",
+    designation_name: "Software Engineer",
+    shift_name: "Morning Shift",
     status: "Present",
-    last_activity: "2026-08-04 08:30:00",
+    last_activity: "2026-08-04 09:05:00",
   },
   {
     id: "6",
     name: "Sneha",
-    register_number: "20ME055",
-    department_name: "Mechanical",
-    course_name: "B.Tech",
-    batch_name: "2022-2026",
+    employee_id: "EMP2055",
+    department_name: "Sales & Marketing",
+    designation_name: "Manager",
+    shift_name: "Evening Shift",
     status: "Absent",
-    last_activity: "2026-08-02 16:10:00",
+    last_activity: "2026-08-02 17:40:00",
   },
   {
     id: "7",
     name: "Divya",
-    register_number: "21EC019",
-    department_name: "Electronics",
-    course_name: "M.E.",
-    batch_name: "2023-2027",
+    employee_id: "EMP3019",
+    department_name: "Human Resources",
+    designation_name: "Team Lead",
+    shift_name: "Morning Shift",
     status: "Present",
-    last_activity: "2026-08-04 08:50:00",
+    last_activity: "2026-08-04 08:58:00",
   },
 ];
 
@@ -117,8 +113,6 @@ function initials(name: string) {
 }
 
 function formatCreatedOn(createdOn: string): string {
-  // Backend sends "YYYY-MM-DD HH:mm:ss" — parse manually since browsers
-  // (Safari in particular) don't reliably parse space-separated datetimes.
   const [datePart, timePart] = createdOn.split(" ");
   if (!datePart || !timePart) return createdOn;
 
@@ -144,8 +138,6 @@ function formatCreatedOn(createdOn: string): string {
   return `${formattedDate}, ${formattedTime}`;
 }
 
-// Defaults: today for end date, 7 days ago for start date — adjust if you'd
-// rather default to empty inputs.
 function getDefaultDates() {
   const today = new Date();
   const weekAgo = new Date();
@@ -164,15 +156,6 @@ function getDefaultDates() {
   };
 }
 
-// ─── Count card (same look as StudentDashboard, now mobile-safe) ──────────
-// FIX: this card had no `min-w-0` / `break-words` / `truncate` anywhere, and
-// used fixed (non-responsive) padding + icon size. On mobile-S (~320px) a
-// 2-column grid row (e.g. "Present" / "Absent" side by side) only leaves
-// ~130px per card — a long label or a big number (e.g. "1,024") could push
-// past the white value badge's rounded corners or wrap awkwardly against
-// the card edge. Matched this to the same defensive pattern used in the
-// dashboard's CountCard: shrink-0 icon, min-w-0 + break-words label,
-// truncate + max-w-full on the value badge, responsive padding/text sizes.
 function CountCard({
   label,
   value,
@@ -216,7 +199,6 @@ export default function Reports() {
     new Date(defaults.end),
   ]);
 
-  // Derived YYYY-MM-DD strings for the API call, kept in sync with dateRange.
   const toISODate = (d: Date) => {
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, "0");
@@ -226,7 +208,7 @@ export default function Reports() {
   const startDate = dateRange[0] ? toISODate(dateRange[0]) : "";
   const endDate = dateRange[1] ? toISODate(dateRange[1]) : "";
 
-  const [students, setStudents] = useState<StudentReportItem[]>([]);
+  const [employees, setEmployees] = useState<EmployeeReportItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
@@ -244,11 +226,8 @@ export default function Reports() {
     setIsLoading(true);
     setError("");
     try {
-      // TODO: swap for a real API call, e.g.
-      // const data = await fetchStudentReportByRange(startDate, endDate);
-      // setStudents(data.students);
       await new Promise((resolve) => setTimeout(resolve, 400)); // simulate network
-      setStudents(MOCK_STUDENTS);
+      setEmployees(MOCK_EMPLOYEES);
       setHasSearched(true);
     } catch (err) {
       setError(
@@ -259,9 +238,9 @@ export default function Reports() {
     }
   };
 
-  const totalStudents = students.length;
-  const totalPresent = students.filter((s) => s.status === "Present").length;
-  const totalAbsent = students.filter((s) => s.status === "Absent").length;
+  const totalEmployees = employees.length;
+  const totalPresent = employees.filter((e) => e.status === "Present").length;
+  const totalAbsent = employees.filter((e) => e.status === "Absent").length;
 
   return (
     <div className="px-4 pt-6 overflow-x-hidden max-w-md mx-auto">
@@ -333,8 +312,8 @@ export default function Reports() {
           {/* Count cards — same look as the dashboard */}
           <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-5">
             <CountCard
-              label="Total Students"
-              value={totalStudents}
+              label="Total Employees"
+              value={totalEmployees}
               icon={<Users />}
               wide
             />
@@ -346,48 +325,51 @@ export default function Reports() {
             <CountCard label="Absent" value={totalAbsent} icon={<UserX />} />
           </div>
 
-          {/* Student list — same card style as StudentDashboard */}
-          <h2 className="text-2xl font-bold mt-6 mb-3">Students</h2>
+          {/* Employee list — same card style as Dashboard */}
+          <h2 className="text-2xl font-bold mt-6 mb-3">Employees</h2>
           <div className="space-y-3">
-            {students.map((stu) => (
+            {employees.map((emp) => (
               <div
-                key={stu.id}
+                key={emp.id}
                 className="bg-white rounded-2xl shadow-sm p-4 flex items-center gap-3"
               >
                 <div
-                  className={`w-14 h-14 rounded-xl ${avatarColor(stu.name)} text-white flex items-center justify-center font-bold shrink-0`}
+                  className={`w-14 h-14 rounded-xl ${avatarColor(emp.name)} text-white flex items-center justify-center font-bold shrink-0`}
                 >
-                  {initials(stu.name)}
+                  {initials(emp.name)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-gray-900 truncate">
-                    {stu.name}
+                    {emp.name}
                   </p>
                   <p className="text-xs text-gray-500 truncate">
-                    {stu.register_number}
+                    {emp.employee_id}
                   </p>
                   <p className="text-xs text-blue-600 truncate">
-                    {[stu.department_name, stu.course_name, stu.batch_name]
+                    {/* {[emp.department_name, emp.designation_name, emp.shift_name]
+                      .filter(Boolean)
+                      .join(" - ")} */}
+                      {[emp.department_name]
                       .filter(Boolean)
                       .join(" - ")}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {formatCreatedOn(stu.last_activity)}
+                    {formatCreatedOn(emp.last_activity)}
                   </p>
                   <p
                     className={`text-xs font-semibold mt-0.5 ${
-                      stu.status === "Present"
+                      emp.status === "Present"
                         ? "text-green-600"
                         : "text-red-600"
                     }`}
                   >
-                    {stu.status}
+                    {emp.status}
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => navigate(`/person/${stu.id}`)}
-                  aria-label={`View ${stu.name}`}
+                  onClick={() => navigate(`/person/${emp.id}`)}
+                  aria-label={`View ${emp.name}`}
                   className="inline-flex items-center justify-center !p-0 w-10 h-10 rounded-full bg-blue-50 text-blue-600 shrink-0"
                 >
                   <Eye className="w-5 h-5" />
@@ -395,9 +377,9 @@ export default function Reports() {
               </div>
             ))}
 
-            {students.length === 0 && (
+            {employees.length === 0 && (
               <p className="text-gray-500 text-center py-4">
-                No students for this range.
+                No employees for this range.
               </p>
             )}
           </div>

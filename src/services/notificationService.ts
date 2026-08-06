@@ -4,7 +4,8 @@ import type { NotificationClickEvent } from "react-onesignal";
 
 // Replace with your real OneSignal app id from the OneSignal dashboard.
 // const ONESIGNAL_APP_ID = "b5ab97ed-319b-4fd6-a750-adbe2d9fa3a2";
-const ONESIGNAL_APP_ID = "e1d16f8f-09f2-497c-903b-6dcf36ddd323";
+const ONESIGNAL_APP_ID = "9765f8eb-3b69-48cc-bd44-5ea550e6647c"; 
+// "e1d16f8f-09f2-497c-903b-6dcf36ddd323";
 // The OneSignal worker lives under /push/onesignal/ so it doesn't clash with
 // the PWA's root-scope service worker (vite-plugin-pwa).
 const ONESIGNAL_SW_SCOPE = "/push/onesignal/";

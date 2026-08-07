@@ -15,12 +15,19 @@ const LOGIN_API_URL = `${API_URL}/UserLogin`;
 
 export class AuthError extends Error {}
 
+interface NotificationCategoryRaw {
+  id: string;
+  name: string;
+  is_active: boolean;
+}
+
 interface LoginApiUser {
   id: string;
   first_name: string;
   last_name: string;
   email: string;
   api_token: string;
+  notification?: string; // JSON-encoded string, e.g. '[{"id":"...","name":"...","is_active":true}]'
   user_role?: {
     name?: string;
     landing_page?: string;
@@ -35,12 +42,30 @@ interface LoginApiResponse {
   };
 }
 
+export interface NotificationCategory {
+  id: string;
+  name: string;
+  is_active: boolean;
+}
+
 export interface CurrentUser {
   id: string;
   firstName: string;
   lastName: string;
   email: string;
   role?: string;
+  notifications: NotificationCategory[];
+}
+
+function parseNotifications(raw: string | undefined): NotificationCategory[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.warn("[Auth] failed to parse notification field:", err);
+    return [];
+  }
 }
 
 export async function login(email: string, password: string): Promise<string> {
@@ -98,6 +123,7 @@ export async function login(email: string, password: string): Promise<string> {
     lastName: user.last_name,
     email: user.email,
     role: user.user_role?.name,
+    notifications: parseNotifications(user.notification),
   };
 
   localStorage.setItem(TOKEN_KEY, token);

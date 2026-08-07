@@ -27,7 +27,7 @@ export async function initOneSignal(): Promise<void> {
   try {
     await OneSignal.init({
       appId: ONESIGNAL_APP_ID,
-      safari_web_id: "web.onesignal.auto.5462a642-4744-4944-be08-d03aa1430cc8",
+      safari_web_id: "web.onesignal.auto.1774e9e6-150a-4896-aace-e43262a3e2ec",
       serviceWorkerParam: { scope: ONESIGNAL_SW_SCOPE },
       serviceWorkerPath: ONESIGNAL_SW_PATH,
       autoPrompt: false,

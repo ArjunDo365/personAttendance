@@ -13,7 +13,11 @@ export default defineConfig({
       // OneSignal uses a separate worker scoped to "/push/onesignal/" so the two
       // never collide (a scope can only be owned by one SW).
       registerType: "autoUpdate",
-      includeAssets: ["assets/images/favicon.svg", "assets/logo192.png", "assets/logo512.png"],
+      includeAssets: [
+        "assets/images/favicon.svg",
+        "assets/logo192.png",
+        "assets/logo512.png",
+      ],
       manifest: {
         name: "Camlytix AI",
         short_name: "Camlytix",
@@ -59,8 +63,8 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      "/admin/api": {
-        target: "https://animal.camlytix.ai",
+      "/api": {
+        target: "https://milkymist.camlytix.ai",
         changeOrigin: true,
         secure: true,
       },

@@ -8,66 +8,10 @@ import {
   Phone,
   Briefcase,
 } from "lucide-react";
+import { fetchPersonById } from "../services/personService";
+import type { PersonActivityRecord } from "../services/personService";
 
-// ─── Types ──────────────────────────────────────────────────────────────
-
-interface EmployeeProfile {
-  id: string;
-  name: string;
-  employee_id: string;
-  department_name: string;
-  designation_name: string;
-  shift_name: string;
-  contact_person_name: string;
-  contact_person_number: string;
-}
-
-interface AttendanceRecord {
-  unique_id: string;
-  device: string;
-  type: "in" | "out";
-  created_on: string; // "YYYY-MM-DD HH:mm:ss"
-}
-
-const MOCK_PROFILES: Record<string, EmployeeProfile> = {
-  "1": {
-    id: "1",
-    name: "Arjun",
-    employee_id: "EMP1045",
-    department_name: "Engineering",
-    designation_name: "Software Engineer",
-    shift_name: "Morning Shift",
-    contact_person_name: "Suresh Kumar",
-    contact_person_number: "+91 98765 43210",
-  },
-};
-
-const MOCK_RECORDS: AttendanceRecord[] = [
-  {
-    unique_id: "r1",
-    device: "Main Gate",
-    type: "in",
-    created_on: "2026-08-04 09:02:00",
-  },
-  {
-    unique_id: "r2",
-    device: "Cafeteria",
-    type: "out",
-    created_on: "2026-08-04 13:10:00",
-  },
-  {
-    unique_id: "r3",
-    device: "Cafeteria",
-    type: "in",
-    created_on: "2026-08-04 13:45:00",
-  },
-  {
-    unique_id: "r4",
-    device: "Main Gate",
-    type: "out",
-    created_on: "2026-08-04 18:20:00",
-  },
-];
+const BRAND_COLOR = "#060C37";
 
 function avatarColor(name: string) {
   const colors = [
@@ -118,12 +62,34 @@ function formatCreatedOn(createdOn: string | undefined | null): string {
   return `${formattedDate}, ${formattedTime}`;
 }
 
+function PersonAvatar({ name, image }: { name: string; image: string }) {
+  const [imgError, setImgError] = useState(false);
+
+  if (image && !imgError) {
+    return (
+      <img
+        src={image}
+        alt={name}
+        onError={() => setImgError(true)}
+        className="w-16 h-16 rounded-xl object-cover shrink-0"
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`w-16 h-16 rounded-xl ${avatarColor(name)} text-white flex items-center justify-center font-bold text-lg shrink-0`}
+    >
+      {initials(name)}
+    </div>
+  );
+}
+
 export default function PersonDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [profile, setProfile] = useState<EmployeeProfile | null>(null);
-  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [records, setRecords] = useState<PersonActivityRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -132,20 +98,18 @@ export default function PersonDetail() {
 
     (async () => {
       if (!id) {
-        setError("No employee id provided.");
+        setError("No person id provided.");
         setIsLoading(false);
         return;
       }
       setIsLoading(true);
       setError("");
       try {
-        await new Promise((resolve) => setTimeout(resolve, 300)); // simulate network
+        const data = await fetchPersonById(id);
         if (active) {
-          const foundProfile = MOCK_PROFILES[id] ?? MOCK_PROFILES["1"];
-          const sorted = [...MOCK_RECORDS].sort((a, b) =>
-            a.created_on < b.created_on ? 1 : -1,
+          const sorted = [...data].sort((a, b) =>
+            a.datatime < b.datatime ? 1 : -1,
           );
-          setProfile(foundProfile);
           setRecords(sorted);
         }
       } catch (err) {
@@ -153,7 +117,7 @@ export default function PersonDetail() {
           setError(
             err instanceof Error
               ? err.message
-              : "Failed to load employee details.",
+              : "Failed to load person details.",
           );
         }
       } finally {
@@ -165,6 +129,9 @@ export default function PersonDetail() {
       active = false;
     };
   }, [id]);
+
+  // Profile fields are repeated on every record — use the first one.
+  const profile = records[0] ?? null;
 
   return (
     <div className="px-4 pt-6 pb-8">
@@ -187,7 +154,7 @@ export default function PersonDetail() {
         <p className="text-red-500 text-center py-8">{error}</p>
       )}
       {!isLoading && !error && !profile && (
-        <p className="text-gray-500 text-center py-8">Employee not found.</p>
+        <p className="text-gray-500 text-center py-8">Person not found.</p>
       )}
 
       {!isLoading && !error && profile && (
@@ -195,48 +162,55 @@ export default function PersonDetail() {
           {/* Profile card */}
           <div className="bg-white rounded-2xl shadow-sm p-5">
             <div className="flex items-center gap-4 mb-4">
-              <div
-                className={`w-16 h-16 rounded-xl ${avatarColor(profile.name)} text-white flex items-center justify-center font-bold text-lg shrink-0`}
-              >
-                {initials(profile.name)}
-              </div>
+              <PersonAvatar name={profile.name} image={profile.image} />
               <div>
                 <h2 className="text-xl font-bold text-gray-900">
                   {profile.name}
                 </h2>
-                <p className="text-sm text-gray-500">{profile.employee_id}</p>
+                <p className="text-sm text-gray-500">
+                  {profile.register_number}
+                </p>
               </div>
             </div>
 
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <Briefcase className="w-5 h-5 text-gray-400 shrink-0" />
+                <Briefcase
+                  className="w-5 h-5 shrink-0"
+                  style={{ color: BRAND_COLOR }}
+                />
                 <div>
                   <p className="text-xs text-gray-500">
-                    Department / Designation / Shift
+                    Department / Designation
                   </p>
                   <p className="font-medium text-gray-900">
-                    {[
-                      profile.department_name,
-                      profile.designation_name,
-                      profile.shift_name,
-                    ]
+                    {[profile.department_name, profile.designation_name]
                       .filter(Boolean)
                       .join(" - ")}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <Phone className="w-5 h-5 text-gray-400 shrink-0" />
-                <div>
-                  <p className="text-xs text-gray-500">Emergency Contact</p>
-                  <p className="font-medium text-gray-900">
-                    {profile.contact_person_name} ·{" "}
-                    {profile.contact_person_number}
-                  </p>
+              {(profile.contact_person_name ||
+                profile.contact_person_number) && (
+                <div className="flex items-center gap-3">
+                  <Phone
+                    className="w-5 h-5 shrink-0"
+                    style={{ color: BRAND_COLOR }}
+                  />
+                  <div>
+                    <p className="text-xs text-gray-500">Emergency Contact</p>
+                    <p className="font-medium text-gray-900">
+                      {[
+                        profile.contact_person_name,
+                        profile.contact_person_number,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "—"}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -249,14 +223,14 @@ export default function PersonDetail() {
               </p>
             ) : (
               <div className="space-y-3">
-                {records.map((record) => (
+                {records.map((record, idx) => (
                   <div
-                    key={record.unique_id}
+                    key={`${record.asset_no}-${record.datatime}-${idx}`}
                     className="bg-white rounded-2xl shadow-sm p-5"
                   >
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="font-bold text-gray-900">
-                        {record.device}
+                        {record.model_name}
                       </h4>
                       <span
                         className={`inline-flex items-center gap-1 text-sm font-semibold px-3 py-1 rounded-full uppercase ${
@@ -271,34 +245,43 @@ export default function PersonDetail() {
 
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
-                        <MapPin className="w-5 h-5 text-gray-400 shrink-0" />
+                        <MapPin
+                          className="w-5 h-5 shrink-0"
+                          style={{ color: BRAND_COLOR }}
+                        />
                         <div>
                           <p className="text-xs text-gray-500">Location</p>
                           <p className="font-medium text-gray-900">
-                            {record.device}
+                            {record.model_name}
                           </p>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <Calendar className="w-5 h-5 text-gray-400 shrink-0" />
+                        <Calendar
+                          className="w-5 h-5 shrink-0"
+                          style={{ color: BRAND_COLOR }}
+                        />
                         <div>
                           <p className="text-xs text-gray-500">Time</p>
                           <p className="font-medium text-gray-900">
-                            {formatCreatedOn(record.created_on)}
+                            {formatCreatedOn(record.datatime)}
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        <Hash className="w-5 h-5 text-gray-400 shrink-0" />
+                      {/* <div className="flex items-center gap-3">
+                        <Hash
+                          className="w-5 h-5 shrink-0"
+                          style={{ color: BRAND_COLOR }}
+                        />
                         <div>
-                          <p className="text-xs text-gray-500">Record ID</p>
+                          <p className="text-xs text-gray-500">Asset No.</p>
                           <p className="font-medium text-gray-900">
-                            {record.unique_id}
+                            {record.asset_no}
                           </p>
                         </div>
-                      </div>
+                      </div> */}
                     </div>
                   </div>
                 ))}

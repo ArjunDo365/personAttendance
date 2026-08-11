@@ -156,6 +156,7 @@ export default function Dashboard() {
   const [userDepartments, setUserDepartments] = useState<
     NotificationCategory[]
   >([]);
+  const [currUser, setCurrUser] = useState<any>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
@@ -168,6 +169,7 @@ export default function Dashboard() {
   // Load the current user's id + department (notification category) list once.
   useEffect(() => {
     const user = getCurrentUser();
+    setCurrUser(user);
     setUserId(user?.id ?? null);
     setUserDepartments((user?.notifications ?? []).filter((n) => n.is_active));
   }, []);
@@ -255,7 +257,7 @@ export default function Dashboard() {
       >
         <div className="min-w-0">
           <h1 className="text-2xl font-bold truncate">Welcome back</h1>
-          <p className="text-blue-300 mt-1">HR Admin</p>
+          <p className="text-blue-300 mt-1">{`${currUser?.firstName} ${currUser?.lastName}`}</p>
         </div>
         <div className="bg-white/10 rounded-xl px-3 py-2 text-center shrink-0">
           <p className="text-xs text-blue-200">Refresh in</p>

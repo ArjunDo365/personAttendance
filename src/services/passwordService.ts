@@ -30,21 +30,27 @@ export async function changePassword(
   payload: ChangePasswordPayload,
 ): Promise<ChangePasswordResponse> {
   const response = await fetch(CHANGE_PASSWORD_API_URL, {
-    method: "PUT",
-    // headers: {
-    //   ...authHeaders(),
-    //   "X-CSRF-TOKEN": "",
-    // },
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify(payload),
+    method: "POST",
+    // headers: authHeaders(),
+    body: JSON.stringify({
+      user_id: payload.id,
+      old_password: payload.old_password,
+      password: payload.password,
+    }),
   });
 
-  if (!response.ok) {
-    throw new Error(`Failed to change password (status ${response.status})`);
+  let data: ChangePasswordResponse;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("Unexpected response from the server.");
   }
 
-  return response.json();
+  if (!response.ok || data?.Type !== "S") {
+    throw new Error(
+      data?.Message || `Failed to change password (status ${response.status})`,
+    );
+  }
+
+  return data;
 }

@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { LogOut, RotateCcwKey, Eye, EyeOff, ChevronDown } from "lucide-react";
 import { changePassword } from "../services/passwordService";
 
+const BRAND_COLOR = "#060C37";
+
 export default function Profile() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -122,7 +124,7 @@ export default function Profile() {
           className="w-full flex items-center justify-between px-5 py-4"
         >
           <span className="flex items-center gap-2 font-semibold text-gray-800">
-            <RotateCcwKey className="w-5 h-5 text-gray-500" />
+            <RotateCcwKey className="w-5 h-5" style={{ color: BRAND_COLOR }} />
             Change Password
           </span>
           <ChevronDown
@@ -152,7 +154,8 @@ export default function Profile() {
                     }))
                   }
                   disabled={isSubmitting}
-                  className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 disabled:opacity-50"
+                  style={{ ["--tw-ring-color" as any]: BRAND_COLOR }}
                 />
                 <button
                   type="button"
@@ -184,7 +187,8 @@ export default function Profile() {
                     }))
                   }
                   disabled={isSubmitting}
-                  className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 disabled:opacity-50"
+                  style={{ ["--tw-ring-color" as any]: BRAND_COLOR }}
                 />
                 <button
                   type="button"
@@ -216,7 +220,8 @@ export default function Profile() {
                     }))
                   }
                   disabled={isSubmitting}
-                  className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                  className="w-full px-3 py-2.5 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 disabled:opacity-50"
+                  style={{ ["--tw-ring-color" as any]: BRAND_COLOR }}
                 />
                 <button
                   type="button"
@@ -235,7 +240,9 @@ export default function Profile() {
 
             {formError && <p className="text-red-500 text-sm">{formError}</p>}
             {formSuccess && (
-              <p className="text-blue-600 text-sm">{formSuccess}</p>
+              <p className="text-sm" style={{ color: BRAND_COLOR }}>
+                {formSuccess}
+              </p>
             )}
 
             <div className="flex gap-3 pt-1">
@@ -254,7 +261,8 @@ export default function Profile() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 px-4 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium disabled:opacity-60"
+                className="flex-1 px-4 py-2.5 rounded-lg text-white font-medium disabled:opacity-60"
+                style={{ backgroundColor: BRAND_COLOR }}
               >
                 {isSubmitting ? "Saving..." : "Save"}
               </button>

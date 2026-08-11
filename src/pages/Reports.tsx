@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Flatpickr from "react-flatpickr";
 import "flatpickr/dist/flatpickr.css";
 import { Users, UserCheck, UserX } from "lucide-react";
@@ -50,6 +50,65 @@ function toISODate(d: Date): string {
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+// Seconds-since-midnight for a "HH:mm:ss" (or "HH:mm") string.
+function toSeconds(time: string): number {
+  const [h, m, s] = time.split(":").map(Number);
+  return (h || 0) * 3600 + (m || 0) * 60 + (s || 0);
+}
+
+// Matches the desktop app's HH:mm formatting for accumulated minutes.
+function formatMinutesToHHMM(minutes: number): string {
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
+interface WorkedSegment {
+  in: string;
+  out: string;
+}
+
+interface PersonAttendanceGroup {
+  person_id: string;
+  student_name: string;
+  register_number: string;
+  image: string | null;
+  workedTimes: WorkedSegment[];
+  totalMinutes: number;
+}
+
+// Groups raw records by person, summing every in/out pair's duration —
+// same logic as the desktop AttendanceDetails page (grouped by
+// person_id + date; since this view is single-date, grouping by person
+// alone is equivalent).
+function groupAttendance(records: AttendanceRecord[]): PersonAttendanceGroup[] {
+  const grouped: Record<string, PersonAttendanceGroup> = {};
+
+  for (const item of records) {
+    const key = item.person_id;
+
+    if (!grouped[key]) {
+      grouped[key] = {
+        person_id: item.person_id,
+        student_name: item.student_name,
+        register_number: item.register_number,
+        image: item.image,
+        workedTimes: [],
+        totalMinutes: 0,
+      };
+    }
+
+    if (item.time_in && item.time_out) {
+      grouped[key].workedTimes.push({ in: item.time_in, out: item.time_out });
+
+      const diffInSeconds = toSeconds(item.time_out) - toSeconds(item.time_in);
+      grouped[key].totalMinutes += Math.round(diffInSeconds / 60);
+    }
+  }
+
+  return Object.values(grouped);
 }
 
 type CountCardVariant = "brand" | "present" | "absent";
@@ -160,6 +219,8 @@ export default function Reports() {
     }
   };
 
+  const groupedAttendance = useMemo(() => groupAttendance(records), [records]);
+
   const totalRecords = records.length;
   const totalPresent = records.filter((r) => !!r.time_in).length;
   const totalAbsent = totalRecords - totalPresent;
@@ -253,34 +314,91 @@ export default function Reports() {
           {/* Attendance list */}
           <h2 className="text-2xl font-bold mt-6 mb-3">Attendance</h2>
           <div className="space-y-3">
-            {records.map((rec) => (
-              <div
-                key={`${rec.person_id}-${rec.date}`}
-                className="bg-white rounded-2xl shadow-sm p-4 flex items-center gap-3"
-              >
-                <PersonAvatar name={rec.student_name} image={rec.image} />
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 truncate">
-                    {rec.student_name}
-                  </p>
-                  <p className="text-xs text-gray-500 truncate">
-                    {rec.register_number}
-                  </p>
-                  <div className="flex gap-3 mt-1">
-                    <p className="text-xs text-gray-600">
-                      <span className="font-medium text-green-600">In:</span>{" "}
-                      {formatTime(rec.time_in)}
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      <span className="font-medium text-red-600">Out:</span>{" "}
-                      {formatTime(rec.time_out)}
-                    </p>
+            {groupedAttendance.map((person) => {
+              const totalHours = formatMinutesToHHMM(person.totalMinutes);
+              const otMinutes =
+                person.totalMinutes > 480 ? person.totalMinutes - 480 : 0;
+              const otHours = formatMinutesToHHMM(otMinutes);
+
+              return (
+                <div
+                  key={person.person_id}
+                  className="bg-white rounded-2xl shadow-sm p-4"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <PersonAvatar
+                      name={person.student_name}
+                      image={person.image}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">
+                        {person.student_name}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {person.register_number}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Worked time segments */}
+                  {person.workedTimes.length > 0 && (
+                    <div className="mb-3 space-y-1">
+                      {person.workedTimes.map((seg, i) => (
+                        <p key={i} className="text-xs text-gray-600">
+                          <span className="font-medium text-green-600">
+                            In:
+                          </span>{" "}
+                          {formatTime(seg.in)}{" "}
+                          <span className="font-medium text-red-600 ml-2">
+                            Out:
+                          </span>{" "}
+                          {formatTime(seg.out)}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Worked / OT / Total hours */}
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100">
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase text-gray-400 font-semibold">
+                        Worked
+                      </p>
+                      <p
+                        className="text-sm font-bold"
+                        style={{ color: BRAND_COLOR }}
+                      >
+                        {totalHours}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase text-gray-400 font-semibold">
+                        OT
+                      </p>
+                      <p
+                        className="text-sm font-bold"
+                        style={{ color: BRAND_COLOR }}
+                      >
+                        {otHours}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase text-gray-400 font-semibold">
+                        Total
+                      </p>
+                      <p
+                        className="text-sm font-bold"
+                        style={{ color: BRAND_COLOR }}
+                      >
+                        {totalHours}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
-            {records.length === 0 && (
+            {groupedAttendance.length === 0 && (
               <p className="text-gray-500 text-center py-4">
                 No attendance records for this date.
               </p>

@@ -54,6 +54,9 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,svg,png,ico}"],
         // Don't try to cache the OneSignal worker files — they live in their own scope.
         globIgnores: ["push/onesignal/**"],
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
       },
       devOptions: {
         enabled: true,

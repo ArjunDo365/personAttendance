@@ -3,13 +3,14 @@
 // App entry point. Registers the PWA service worker (vite-plugin-pwa) and
 // initializes OneSignal (scoped to /push/onesignal/) once the root mounts.
 
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import App from './App.tsx';
-import './index.css';
-import { initOneSignal } from './services/notificationService';
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { registerSW } from "virtual:pwa-register";
+import App from "./App.tsx";
+import "./index.css";
+import { initOneSignal } from "./services/notificationService";
 
-createRoot(document.getElementById('root')!).render(
+createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />
   </StrictMode>,
@@ -17,12 +18,19 @@ createRoot(document.getElementById('root')!).render(
 
 // Register the PWA's own service worker (root scope) for offline caching +
 // installability. vite-plugin-pwa generates this module when enabled.
-import { registerSW } from 'virtual:pwa-register';
-registerSW({ immediate: true });
+// With skipWaiting/clientsClaim enabled in vite.config.ts, a new SW takes
+// over immediately instead of requiring every open tab/instance to close.
+registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    console.log("[PWA] New content available, activating...");
+  },
+  onOfflineReady() {
+    console.log("[PWA] App ready to work offline");
+  },
+});
 
 // Initialize OneSignal (separate worker under /push/onesignal/). The
 // notification-click deep-link handler is set up inside and routes via the
 // navigator registered by App.tsx.
-initOneSignal().catch((err) =>
-  console.warn('[OneSignal] init failed:', err),
-);
+initOneSignal().catch((err) => console.warn("[OneSignal] init failed:", err));

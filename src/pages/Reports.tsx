@@ -10,6 +10,7 @@ import {
 // ─── Helpers ────────────────────────────────────────────────────────────
 
 const BRAND_COLOR = "#060C37";
+const STANDARD_DAY_SECONDS = 8 * 3600; // 8-hour standard workday, for OT calc
 
 const AVATAR_COLORS = [
   "bg-blue-600",
@@ -52,37 +53,45 @@ function toISODate(d: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-// Seconds-since-midnight for a "HH:mm:ss" (or "HH:mm") string.
-function toSeconds(time: string): number {
-  const [h, m, s] = time.split(":").map(Number);
-  return (h || 0) * 3600 + (m || 0) * 60 + (s || 0);
+// Parses a "HH:MM:SS" string (as returned by the worked_hours field) into
+// total seconds. Returns 0 for null/malformed input.
+function toSecondsFromHHMMSS(value: string | null): number {
+  if (!value) return 0;
+  const [h, m, s] = value.split(":").map(Number);
+  if ([h, m, s].some((n) => isNaN(n))) return 0;
+  return h * 3600 + m * 60 + s;
 }
 
-// Matches the desktop app's HH:mm formatting for accumulated minutes.
-function formatMinutesToHHMM(minutes: number): string {
-  const hrs = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+// Formats total seconds back into "HH:MM:SS", matching the backend's own
+// worked_hours format.
+function formatSecondsToHHMMSS(totalSeconds: number): string {
+  const safeSeconds = Math.max(0, Math.round(totalSeconds));
+  const hrs = Math.floor(safeSeconds / 3600);
+  const mins = Math.floor((safeSeconds % 3600) / 60);
+  const secs = safeSeconds % 60;
+  return `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
 interface WorkedSegment {
   in: string;
-  out: string;
+  out: string | null;
+  workedHours: string | null; // raw "HH:MM:SS" from the API, or null if ongoing
 }
 
 interface PersonAttendanceGroup {
   person_id: string;
   student_name: string;
   register_number: string;
+  department_name: string;
+  designation_name: string;
   image: string | null;
   workedTimes: WorkedSegment[];
-  totalMinutes: number;
+  totalSeconds: number;
 }
 
-// Groups raw records by person, summing every in/out pair's duration —
-// same logic as the desktop AttendanceDetails page (grouped by
-// person_id + date; since this view is single-date, grouping by person
-// alone is equivalent).
+// Groups raw records by person, summing each segment's worked_hours (as
+// reported directly by the backend) rather than recomputing durations
+// ourselves.
 function groupAttendance(records: AttendanceRecord[]): PersonAttendanceGroup[] {
   const grouped: Record<string, PersonAttendanceGroup> = {};
 
@@ -94,18 +103,21 @@ function groupAttendance(records: AttendanceRecord[]): PersonAttendanceGroup[] {
         person_id: item.person_id,
         student_name: item.student_name,
         register_number: item.register_number,
+        department_name: item.department_name,
+        designation_name: item.designation_name,
         image: item.image,
         workedTimes: [],
-        totalMinutes: 0,
+        totalSeconds: 0,
       };
     }
 
-    if (item.time_in && item.time_out) {
-      grouped[key].workedTimes.push({ in: item.time_in, out: item.time_out });
+    grouped[key].workedTimes.push({
+      in: item.time_in ?? "-",
+      out: item.time_out,
+      workedHours: item.worked_hours,
+    });
 
-      const diffInSeconds = toSeconds(item.time_out) - toSeconds(item.time_in);
-      grouped[key].totalMinutes += Math.round(diffInSeconds / 60);
-    }
+    grouped[key].totalSeconds += toSecondsFromHHMMSS(item.worked_hours);
   }
 
   return Object.values(grouped);
@@ -315,10 +327,12 @@ export default function Reports() {
           <h2 className="text-2xl font-bold mt-6 mb-3">Attendance</h2>
           <div className="space-y-3">
             {groupedAttendance.map((person) => {
-              const totalHours = formatMinutesToHHMM(person.totalMinutes);
-              const otMinutes =
-                person.totalMinutes > 480 ? person.totalMinutes - 480 : 0;
-              const otHours = formatMinutesToHHMM(otMinutes);
+              const totalWorked = formatSecondsToHHMMSS(person.totalSeconds);
+              const otSeconds = Math.max(
+                0,
+                person.totalSeconds - STANDARD_DAY_SECONDS,
+              );
+              const otHours = formatSecondsToHHMMSS(otSeconds);
 
               return (
                 <div
@@ -337,60 +351,78 @@ export default function Reports() {
                       <p className="text-xs text-gray-500 truncate">
                         {person.register_number}
                       </p>
+                      <p
+                        className="text-xs truncate"
+                        style={{ color: BRAND_COLOR }}
+                      >
+                        {[person.department_name, person.designation_name]
+                          .filter(Boolean)
+                          .join(" - ")}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Worked time segments */}
+                  {/* Per-session In / Out / Worked table, matching the
+                      reference modal's TIME IN / TIME OUT / WORKED HOURS
+                      layout */}
                   {person.workedTimes.length > 0 && (
-                    <div className="mb-3 space-y-1">
-                      {person.workedTimes.map((seg, i) => (
-                        <p key={i} className="text-xs text-gray-600">
-                          <span className="font-medium text-green-600">
-                            In:
-                          </span>{" "}
-                          {formatTime(seg.in)}{" "}
-                          <span className="font-medium text-red-600 ml-2">
-                            Out:
-                          </span>{" "}
-                          {formatTime(seg.out)}
-                        </p>
-                      ))}
+                    <div className="mb-3 overflow-hidden rounded-lg border border-gray-100">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-gray-50 text-gray-500">
+                            <th className="px-2 py-1.5 text-left font-semibold">
+                              In
+                            </th>
+                            <th className="px-2 py-1.5 text-left font-semibold">
+                              Out
+                            </th>
+                            <th className="px-2 py-1.5 text-right font-semibold">
+                              Worked
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {person.workedTimes.map((seg, i) => (
+                            <tr key={i} className="border-t border-gray-100">
+                              <td className="px-2 py-1.5 text-green-600 font-medium">
+                                {formatTime(seg.in)}
+                              </td>
+                              <td className="px-2 py-1.5 text-red-600 font-medium">
+                                {formatTime(seg.out)}
+                              </td>
+                              <td className="px-2 py-1.5 text-right text-gray-700">
+                                {seg.workedHours ?? "-"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )}
 
-                  {/* Worked / OT / Total hours */}
-                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100">
+                  {/* Totals — Worked Hours / OT Hours, matching the
+                      reference's two summary rows */}
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
                     <div className="text-center">
                       <p className="text-[10px] uppercase text-gray-400 font-semibold">
-                        Worked
+                        Worked Hours
                       </p>
                       <p
                         className="text-sm font-bold"
                         style={{ color: BRAND_COLOR }}
                       >
-                        {totalHours}
+                        {totalWorked}
                       </p>
                     </div>
                     <div className="text-center">
                       <p className="text-[10px] uppercase text-gray-400 font-semibold">
-                        OT
+                        OT Hours
                       </p>
                       <p
                         className="text-sm font-bold"
                         style={{ color: BRAND_COLOR }}
                       >
                         {otHours}
-                      </p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-[10px] uppercase text-gray-400 font-semibold">
-                        Total
-                      </p>
-                      <p
-                        className="text-sm font-bold"
-                        style={{ color: BRAND_COLOR }}
-                      >
-                        {totalHours}
                       </p>
                     </div>
                   </div>

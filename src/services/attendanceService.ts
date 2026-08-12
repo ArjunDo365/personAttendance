@@ -10,10 +10,13 @@ export interface AttendanceRecord {
   student_name: string;
   person_no: string;
   register_number: string;
+  department_name: string;
+  designation_name: string;
   image: string;
   date: string;
   time_in: string | null;
   time_out: string | null;
+  worked_hours: string | null; // "HH:MM:SS", null when shift is still open
   time_in_image: string | null;
   time_out_image: string | null;
 }

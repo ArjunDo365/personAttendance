@@ -327,12 +327,17 @@ export default function Reports() {
           <h2 className="text-2xl font-bold mt-6 mb-3">Attendance</h2>
           <div className="space-y-3">
             {groupedAttendance.map((person) => {
-              const totalWorked = formatSecondsToHHMMSS(person.totalSeconds);
+              const totalWorkedSeconds = person.totalSeconds;
               const otSeconds = Math.max(
                 0,
-                person.totalSeconds - STANDARD_DAY_SECONDS,
+                totalWorkedSeconds - STANDARD_DAY_SECONDS,
               );
+              const workedSeconds = totalWorkedSeconds - otSeconds;
+
+              const totalWorkedHours =
+                formatSecondsToHHMMSS(totalWorkedSeconds);
               const otHours = formatSecondsToHHMMSS(otSeconds);
+              const workedHours = formatSecondsToHHMMSS(workedSeconds);
 
               return (
                 <div
@@ -400,9 +405,8 @@ export default function Reports() {
                     </div>
                   )}
 
-                  {/* Totals — Worked Hours / OT Hours, matching the
-                      reference's two summary rows */}
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
+                  {/* Totals — Worked Hours / OT Hours / Total Worked Hours */}
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-gray-100">
                     <div className="text-center">
                       <p className="text-[10px] uppercase text-gray-400 font-semibold">
                         Worked Hours
@@ -411,7 +415,7 @@ export default function Reports() {
                         className="text-sm font-bold"
                         style={{ color: BRAND_COLOR }}
                       >
-                        {totalWorked}
+                        {workedHours}
                       </p>
                     </div>
                     <div className="text-center">
@@ -423,6 +427,17 @@ export default function Reports() {
                         style={{ color: BRAND_COLOR }}
                       >
                         {otHours}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-[10px] uppercase text-gray-400 font-semibold">
+                        Total Worked
+                      </p>
+                      <p
+                        className="text-sm font-bold"
+                        style={{ color: BRAND_COLOR }}
+                      >
+                        {totalWorkedHours}
                       </p>
                     </div>
                   </div>

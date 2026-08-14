@@ -1,13 +1,8 @@
 import OneSignal from "react-onesignal";
 import type { NotificationClickEvent } from "react-onesignal";
-// import { API_URL } from "./authService";
 
-// Replace with your real OneSignal app id from the OneSignal dashboard.
-// const ONESIGNAL_APP_ID = "b5ab97ed-319b-4fd6-a750-adbe2d9fa3a2";
-const ONESIGNAL_APP_ID = "9765f8eb-3b69-48cc-bd44-5ea550e6647c"; 
-// "e1d16f8f-09f2-497c-903b-6dcf36ddd323";
-// The OneSignal worker lives under /push/onesignal/ so it doesn't clash with
-// the PWA's root-scope service worker (vite-plugin-pwa).
+const ONESIGNAL_APP_ID = "9765f8eb-3b69-48cc-bd44-5ea550e6647c";
+
 const ONESIGNAL_SW_SCOPE = "/push/onesignal/";
 const ONESIGNAL_SW_PATH = "push/onesignal/OneSignalSDKWorker.js";
 
@@ -27,9 +22,9 @@ export async function initOneSignal(): Promise<void> {
   try {
     await OneSignal.init({
       appId: ONESIGNAL_APP_ID,
-      safari_web_id: "web.onesignal.auto.1774e9e6-150a-4896-aace-e43262a3e2ec",
       serviceWorkerParam: { scope: ONESIGNAL_SW_SCOPE },
       serviceWorkerPath: ONESIGNAL_SW_PATH,
+      safari_web_id: "web.onesignal.auto.1774e9e6-150a-4896-aace-e43262a3e2ec",
       autoPrompt: false,
       autoRegister: false,
       notifyUrl: "https://onesignal.com/api/v1/notification",
@@ -41,6 +36,7 @@ export async function initOneSignal(): Promise<void> {
       (event: NotificationClickEvent) => {
         const path = extractDeepLinkPath(event);
         if (!path) return;
+
         if (deepLinkNavigator) {
           deepLinkNavigator(path);
         } else if (typeof window !== "undefined") {
@@ -49,13 +45,13 @@ export async function initOneSignal(): Promise<void> {
       },
     );
 
-    await OneSignal.Notifications.requestPermission();
-
     cachedSubscriptionId = OneSignal.User?.PushSubscription?.id ?? null;
 
     OneSignal.User.PushSubscription.addEventListener("change", (event) => {
       cachedSubscriptionId = event?.current?.id ?? null;
     });
+
+    await OneSignal.Notifications.requestPermission();
   } catch (err) {
     console.warn("[OneSignal] initialization failed:", err);
   }
@@ -99,27 +95,8 @@ export async function waitForOneSignalSubscriptionId(
   return null;
 }
 
-function extractDeepLinkPath(event: NotificationClickEvent): string | null {
-  const candidates: unknown[] = [
-    (event as any)?.result?.url,
-    (event as any)?.notification?.launchURL,
-    (event as any)?.notification?.additionalData?.url,
-    (event as any)?.notification?.additionalData?.path,
-    (event as any)?.notification?.additionalData?.deeplink,
-  ];
-
-  for (const raw of candidates) {
-    if (typeof raw !== "string") continue;
-    const path = raw.startsWith("http") ? new URL(raw).pathname : raw;
-    if (path.startsWith("/employees")) return path;
-  }
-  return null;
-}
-
 const UPDATE_SUBSCRIPTION_API_URL =
-  "https://animal.do365tech.com/admin/api/UpdateSubscription";
-// const UPDATE_SUBSCRIPTION_API_URL =  `http://192.168.29.62:8000/api/UpdateSubscription`;
-// "http://localhost:8000/api";
+  "http://localhost:8000/api/UpdateSubscription";
 
 export async function syncOneSignalSubscription(
   apiToken: string,
@@ -156,4 +133,59 @@ export async function syncOneSignalSubscription(
   } catch (err) {
     console.warn("[OneSignal] UpdateSubscription request error:", err);
   }
+}
+
+export type NotificationPermissionStatus =
+  | "granted"
+  | "denied"
+  | "default"
+  | "unsupported";
+
+export function getNotificationPermissionStatus(): NotificationPermissionStatus {
+  if (typeof Notification === "undefined") return "unsupported";
+  return Notification.permission as NotificationPermissionStatus;
+}
+
+export interface RegenerateResult {
+  subscriptionId: string | null;
+  permissionDenied: boolean;
+}
+
+export async function regenerateOneSignalSubscription(): Promise<RegenerateResult> {
+  if (!initialized) {
+    await initOneSignal();
+  }
+
+  const status = getNotificationPermissionStatus();
+  if (status === "denied") {
+    return { subscriptionId: null, permissionDenied: true };
+  }
+
+  try {
+    await OneSignal.Notifications.requestPermission();
+  } catch (err) {
+    console.warn("[OneSignal] regenerate: requestPermission failed:", err);
+  }
+
+  const subscriptionId = await waitForOneSignalSubscriptionId(10000);
+  return { subscriptionId, permissionDenied: false };
+}
+
+function extractDeepLinkPath(event: NotificationClickEvent): string | null {
+  const candidates: unknown[] = [
+    (event as any)?.result?.url,
+    (event as any)?.notification?.launchURL,
+    (event as any)?.notification?.additionalData?.url,
+    (event as any)?.notification?.additionalData?.path,
+    (event as any)?.notification?.additionalData?.deeplink,
+  ];
+
+  for (const raw of candidates) {
+    if (typeof raw !== "string") continue;
+    const path = raw.startsWith("http") ? new URL(raw).pathname : raw;
+    if (path.startsWith("/employees") || path.startsWith("/person")) {
+      return path;
+    }
+  }
+  return null;
 }

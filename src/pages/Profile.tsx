@@ -1,10 +1,62 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { LogOut, RotateCcwKey, Eye, EyeOff, ChevronDown } from "lucide-react";
+import {
+  LogOut,
+  RotateCcwKey,
+  Eye,
+  EyeOff,
+  ChevronDown,
+  BellRing,
+  Copy,
+  Check,
+} from "lucide-react";
 import { changePassword } from "../services/passwordService";
+import {
+  regenerateOneSignalSubscription,
+  getOneSignalSubscriptionId,
+} from "../services/notificationService";
+import { updateUserOneSignalId } from "../services/userService";
+import { getDeviceInfo } from "../utils/deviceInfo";
 
 const BRAND_COLOR = "#060C37";
+
+function CopyableRow({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      console.warn("Copy failed:", err);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-2 mt-1.5">
+      <div className="min-w-0">
+        <p className="text-[11px] text-gray-400 uppercase font-semibold">
+          {label}
+        </p>
+        <p className="text-xs truncate font-mono font-bold">{value}</p>
+      </div>
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="shrink-0 p-1.5 rounded-md hover:bg-gray-100"
+        aria-label={`Copy ${label}`}
+      >
+        {copied ? (
+          <Check className="w-4 h-4 text-green-600" />
+        ) : (
+          <Copy className="w-4 h-4 text-gray-400" />
+        )}
+      </button>
+    </div>
+  );
+}
 
 export default function Profile() {
   const { user, logout } = useAuth();
@@ -24,6 +76,19 @@ export default function Profile() {
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [notifError, setNotifError] = useState("");
+  const [notifSuccess, setNotifSuccess] = useState("");
+  const [permissionBlocked, setPermissionBlocked] = useState(false);
+
+  const [deviceId, setDeviceId] = useState("");
+  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDeviceId(getDeviceInfo().device_id);
+    setSubscriptionId(getOneSignalSubscriptionId());
+  }, []);
 
   const toggle = (field: keyof typeof show) => {
     setShow((prev) => ({ ...prev, [field]: !prev[field] }));
@@ -65,8 +130,6 @@ export default function Profile() {
       return;
     }
 
-    // NOTE: adjust `user?.id` to whatever field actually holds the user id
-    // on your AuthContext's `user` object.
     const userId = (user as { id?: string | number } | null)?.id;
     if (!userId) {
       setFormError("Unable to identify the current user.");
@@ -97,6 +160,53 @@ export default function Profile() {
     }
   };
 
+  const handleRegenerateNotifications = async () => {
+    setNotifError("");
+    setNotifSuccess("");
+    setPermissionBlocked(false);
+
+    const userId = (user as { id?: string | number } | null)?.id;
+    if (!userId) {
+      setNotifError("Unable to identify the current user.");
+      return;
+    }
+
+    setIsRegenerating(true);
+    try {
+      const { subscriptionId: newId, permissionDenied } =
+        await regenerateOneSignalSubscription();
+
+      if (permissionDenied) {
+        setPermissionBlocked(true);
+        return;
+      }
+
+      if (!newId) {
+        setNotifError(
+          "Couldn't get a notification ID. Please try again in a moment.",
+        );
+        return;
+      }
+
+      await updateUserOneSignalId(userId, newId);
+      setSubscriptionId(newId);
+      setNotifSuccess("Notifications re-enabled successfully.");
+    } catch (err) {
+      setNotifError(
+        err instanceof Error
+          ? err.message
+          : "Failed to update notification settings.",
+      );
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
+  const userEmail =
+    (user as { email?: string; name?: string } | null)?.email ??
+    (user as { email?: string; name?: string } | null)?.name ??
+    "—";
+
   return (
     <div className="px-4 pt-6 pb-8">
       <h1 className="text-2xl font-bold mb-4">Profile</h1>
@@ -104,13 +214,72 @@ export default function Profile() {
       {user && (
         <div className="bg-white rounded-2xl shadow-sm p-5 mt-2 mb-4">
           <p className="text-gray-500 text-sm">Signed in as</p>
-          <p className="font-semibold text-lg">
-            {(user as { email?: string; name?: string }).email ??
-              (user as { email?: string; name?: string }).name ??
-              "—"}
-          </p>
+          <p className="font-semibold text-lg">{userEmail}</p>
+
+          <div className="mt-2 pt-2 border-t border-gray-100 divide-y divide-gray-100">
+            {deviceId && <CopyableRow label="Device ID" value={deviceId} />}
+            <CopyableRow
+              label="Subscription ID"
+              value={subscriptionId ?? "Not available"}
+            />
+          </div>
         </div>
       )}
+
+ 
+      <div className="bg-white rounded-2xl shadow-sm p-5 mb-4">
+        <div className="flex items-start gap-3">
+          <BellRing
+            className="w-5 h-5 mt-0.5 shrink-0"
+            style={{ color: BRAND_COLOR }}
+          />
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-gray-800">Notifications</p>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Not receiving alerts? Tap below to reconnect notifications for
+              this device.
+            </p>
+
+            {permissionBlocked && (
+              <div className="mt-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="font-medium">
+                  Notifications are blocked in your browser.
+                </p>
+                <p className="mt-1">
+                  Your browser won't show the permission prompt again
+                  automatically once it's been denied. To fix this:
+                </p>
+                <ol className="list-decimal list-inside mt-1 space-y-0.5">
+                  <li>Open your browser's site settings for this app</li>
+                  <li>Find "Notifications" and change it to "Allow"</li>
+                  <li>Come back here and tap the button below again</li>
+                </ol>
+              </div>
+            )}
+
+            {notifError && !permissionBlocked && (
+              <p className="text-red-500 text-sm mt-2">{notifError}</p>
+            )}
+            {notifSuccess && (
+              <p className="text-sm mt-2" style={{ color: BRAND_COLOR }}>
+                {notifSuccess}
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={handleRegenerateNotifications}
+              disabled={isRegenerating}
+              className="mt-3 px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-60"
+              style={{ backgroundColor: BRAND_COLOR }}
+            >
+              {isRegenerating
+                ? "Refreshing..."
+                : "Refresh Profile"}
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Change Password — inline expandable section, no modal (mobile-only app) */}
       <div className="bg-white rounded-2xl shadow-sm mb-4 overflow-hidden">

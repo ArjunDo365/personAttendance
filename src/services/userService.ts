@@ -6,34 +6,32 @@
 import { getToken } from "./authService";
 import { API_URL } from "./authService";
 
-const UPDATE_USER_API_URL = `${API_URL}/UpdateUser`;
+const UPDATE_USER_API_URL = `${API_URL}/RefreshOneSignalUpdate`;
 
 export interface UpdateUserResult {
-  Type: string; // "S" = success
+  Type: string; 
   Message: string;
 }
 
-/**
- * Associate (or re-associate) a OneSignal subscription id with a user.
- * POST /UpdateUser  { user_id, onesignal_subscription_id }
- */
 export async function updateUserOneSignalId(
   userId: string | number,
   onesignalSubscriptionId: string,
+  deviceId: string,
 ): Promise<UpdateUserResult> {
   const token = getToken();
 
   let response: Response;
   try {
     response = await fetch(UPDATE_USER_API_URL, {
-      method: "POST",
+      method: "PUT",
       headers: {
         "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        // ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({
         user_id: userId,
         onesignal_subscription_id: onesignalSubscriptionId,
+        device_id: deviceId,
       }),
     });
   } catch (err) {

@@ -188,7 +188,7 @@ export default function Profile() {
         return;
       }
 
-      await updateUserOneSignalId(userId, newId);
+      await updateUserOneSignalId(userId, newId, deviceId);
       setSubscriptionId(newId);
       setNotifSuccess("Notifications re-enabled successfully.");
     } catch (err) {
@@ -226,7 +226,6 @@ export default function Profile() {
         </div>
       )}
 
- 
       <div className="bg-white rounded-2xl shadow-sm p-5 mb-4">
         <div className="flex items-start gap-3">
           <BellRing
@@ -273,9 +272,7 @@ export default function Profile() {
               className="mt-3 px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-60"
               style={{ backgroundColor: BRAND_COLOR }}
             >
-              {isRegenerating
-                ? "Refreshing..."
-                : "Refresh Profile"}
+              {isRegenerating ? "Refreshing..." : "Refresh Profile"}
             </button>
           </div>
         </div>
